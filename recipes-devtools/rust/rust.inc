@@ -1,5 +1,4 @@
 inherit rust
-inherit rust-installer
 
 SUMMARY = "Rust compiler and runtime libaries"
 HOMEPAGE = "http://www.rust-lang.org"
