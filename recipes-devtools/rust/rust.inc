@@ -15,6 +15,7 @@ B = "${WORKDIR}/build"
 DEPENDS += "file-native"
 
 # Avoid having the default bitbake.conf disable sub-make parallelization
+PARALLEL_MAKE = ""
 EXTRA_OEMAKE = ""
 
 PACKAGECONFIG ??= ""
