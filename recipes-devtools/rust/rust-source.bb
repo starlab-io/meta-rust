@@ -8,8 +8,8 @@ inherit shared-source-provide
 require rust-version.inc
 require rust-release.inc
 
-SRC_URI[rust.md5sum] = "15f1c204580017838301c5c8568e8f3f"
-SRC_URI[rust.sha256sum] = "6df96059d87b718676d9cd879672e4e22418b6093396b4ccb5b5b66df37bf13a"
+SRC_URI[rust.md5sum] = "8d95febc45b1bafce7b3d7c3dbf88a8c"
+SRC_URI[rust.sha256sum] = "af4466147e8d4db4de2a46e07494d2dc2d96313c5b37da34237f511c905f7449"
 LIC_FILES_CHKSUM = "file://COPYRIGHT;md5=eb87dba71cb424233bcce88db3ae2f1a"
 
 SRC_URI_append = "\
@@ -24,7 +24,6 @@ SRC_URI_append = "\
         file://rust/0011-Allow-overriding-crate_hash-with-C-crate_hash.patch \
         file://rust/0012-mk-platform.mk-pass-C-crate_hash-to-builds.patch \
         file://rust/0013-mk-allow-changing-the-platform-configuration-source-.patch \
-        file://rust-llvm/0000-rust-llvm-remove-extra-slash.patch \
         file://rust-installer/0001-add-option-to-disable-rewriting-of-install-paths.patch;patchdir=src/rust-installer \
         file://rust/fix-urandom-during-init.patch \
 "
