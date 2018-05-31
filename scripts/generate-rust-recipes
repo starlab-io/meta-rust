@@ -1,0 +1,119 @@
+#!/bin/bash
+
+if [[ "$#" -ne 1 ]]; then
+	echo "Must specify the version number"
+	exit 1
+fi
+
+PV=$1
+
+SOURCE=rustc-${PV}-src.tar.gz
+curl -o ${SOURCE} https://static.rust-lang.org/dist/${SOURCE}
+
+SOURCE_MD=$(md5sum ${SOURCE} | cut -d' ' -f1)
+SOURCE_SHA=$(sha256sum ${SOURCE} | cut -d' ' -f1)
+
+echo "Generating rust-llvm_${PV}.bb"
+cat > recipes-devtools/rust/rust-llvm_${PV}.bb << END
+require rust-source-\${PV}.inc
+require rust-llvm.inc
+
+LIC_FILES_CHKSUM = "file://LICENSE.TXT;md5=e825e017edc35cfd58e26116e5251771"
+
+do_install_prepend () {
+	# the install does a sed on this without installing the file
+	# we don't need it for anything
+	mkdir -p "\${D}/usr/share/llvm/cmake"
+	touch "\${D}/usr/share/llvm/cmake/LLVMExports-noconfig.cmake"
+}
+
+do_install_append () {
+	# we don't need any of this stuff to build Rust
+	rm -rf "\${D}/usr/lib/cmake"
+}
+END
+
+echo "Generating rust-cross_${PV}.bb"
+cat > recipes-devtools/rust/rust-cross_${PV}.bb << END
+require rust-cross.inc
+require rust-source-\${PV}.inc
+require rust-snapshot-\${PV}.inc
+END
+
+echo "Generating rust_${PV}.bb"
+cat > recipes-devtools/rust/rust_${PV}.bb << END
+require rust.inc
+require rust-source-\${PV}.inc
+require rust-snapshot-\${PV}.inc
+
+# These are extracted from rustc/src/bootstrap/Cargo.toml via cargo-bitbake
+SRC_URI += " \\
+	<<bootstrap_0.0.0.bb>>
+"
+
+DEPENDS += "rust-llvm (=\${PV})"
+
+# Otherwise we'll depend on what we provide
+INHIBIT_DEFAULT_RUST_DEPS_class-native = "1"
+# We don't need to depend on gcc-native because yocto assumes it exists
+PROVIDES_class-native = "virtual/\${TARGET_PREFIX}rust"
+
+BBCLASSEXTEND = "native"
+END
+
+echo "Generating libstd-rs_${PV}.bb"
+cat > recipes-devtools/rust/libstd-rs_${PV}.bb << END
+require rust-source-\${PV}.inc
+require libstd-rs.inc
+
+LIC_FILES_CHKSUM = "file://../../COPYRIGHT;md5=c709a09d1b062d9a908e3631c1e1cdf5"
+
+# Don't use jemalloc as it doesn't work for many targets.
+# https://github.com/rust-lang/rust/pull/37392
+CARGO_BUILD_FLAGS += "--features 'panic-unwind'"
+
+# These are taken from src/libstd/Cargo.toml via cargo-bitbake
+SRC_URI += " \\
+	<<std_0.0.0.bb>>
+"
+END
+
+echo "Extracting ${SOURCE}"
+tar xzf ${SOURCE} > /dev/null
+
+COPYRIGHT_MDSUM=$(md5sum rustc-${PV}-src/COPYRIGHT | awk '{print $1}')
+
+echo "Generating rust-source-${PV}.inc"
+cat > recipes-devtools/rust/rust-source-${PV}.inc << END
+# Specifics for Rust ${PV}
+
+SRC_URI += "\\
+	https://static.rust-lang.org/dist/rustc-\${PV}-src.tar.gz;name=rust \\
+	"
+
+SRC_URI[md5sum] = "${SOURCE_MD}"
+SRC_URI[sha256sum] = "${SOURCE_SHA}"
+SRC_URI[rust.md5sum] = "${SOURCE_MD}"
+SRC_URI[rust.sha256sum] = "${SOURCE_SHA}"
+
+
+# later versions of rust change the directory that they unextract to
+RUSTSRC = "\${WORKDIR}/rustc-\${PV}-src"
+# set this as our default
+S = "\${RUSTSRC}"
+
+LIC_FILES_CHKSUM = "file://COPYRIGHT;md5=${COPYRIGHT_MDSUM}"
+END
+
+
+echo "Generating bootstrap_0.0.0.bb... fill this into rust_${PV}.bb"
+pushd rustc-${PV}-src/src/bootstrap > /dev/null
+cargo bitbake -f > /dev/null
+mv bootstrap_0.0.0.bb ../../../ > /dev/null
+popd > /dev/null
+
+echo "Generating libstd_0.0.0.bb... fill this into libstd-rs_${PV}.bb"
+pushd rustc-${PV}-src/src/libstd > /dev/null
+cargo bitbake -f > /dev/null
+mv std_0.0.0.bb ../../../ > /dev/null
+popd > /dev/null
